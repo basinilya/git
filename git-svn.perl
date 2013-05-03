@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+use lib (split(/:/, $ENV{GITPERLLIB} || "/home/il/share/perl5/site_perl"));
 # Copyright (C) 2006, Eric Wong <normalperson@yhbt.net>
 # License: GPL v2 or later
 use 5.008;
@@ -8,7 +9,7 @@ use vars qw/	$AUTHOR $VERSION
 		$sha1 $sha1_short $_revision $_repository
 		$_q $_authors $_authors_prog %users/;
 $AUTHOR = 'Eric Wong <normalperson@yhbt.net>';
-$VERSION = '@@GIT_VERSION@@';
+$VERSION = '1.8.2.2.7.g7e72646';
 
 use Carp qw/croak/;
 use Digest::MD5;
@@ -49,6 +50,42 @@ use Git qw(
 	command_bidi_pipe
 	command_close_bidi_pipe
 );
+
+
+#our @EXPORT = qw( printstacktrace );
+
+#open(TEHFILE, ">&STDERR"); 
+open(TEHFILE, ">tmpfiles.log"); 
+
+sub printstacktrace {
+  for(my $i = 1; my @info = caller($i); $i++) {
+    print ::TEHFILE "    at $info[3] ($info[1]:$info[2])\n";
+  }
+  print ::TEHFILE "\n";
+}
+
+sub mydiehandler { # 1st argument is signal name
+  my($sig) = @_;
+  #print STDERR "Caught: $sig\n";
+  if ($sig =~ /Too many open files/) {
+    print STDERR "Caught: $sig\n";
+    #kill "STOP", $$;
+  }
+  die $sig;
+}
+
+$SIG{__DIE__} = \&mydiehandler;
+
+sub open_all_files {
+  my %fdhash;
+  my $pid = open(README, "find / -mount -type f -perm -o+r 2>/dev/null |")  or die "Couldn't fork: $!\n";
+  for(my $i = 1;<README>;$i++) {
+    chomp($_);
+    #print "$i: $_\n";
+    open($fdhash{$_}, "<", $_) or die "aaa: $!";
+  }
+  close(README);
+}
 
 BEGIN {
 	Memoize::memoize 'Git::config';

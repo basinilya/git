@@ -1115,6 +1115,9 @@ sub _temp_cache {
 			'Git_XXXXXX', UNLINK => 1, DIR => $tmpdir,
 			) or throw Error::Simple("couldn't open new temp file");
 
+    print ::TEHFILE "+$fname : $name\n";
+    ::printstacktrace();
+
 		$$temp_fd->autoflush;
 		binmode $$temp_fd;
 		$TEMP_FILES{$$temp_fd}{fname} = $fname;
@@ -1135,6 +1138,11 @@ Truncates and resets the position of the C<FILEHANDLE>.
 
 sub temp_reset {
 	my ($self, $temp_fd) = _maybe_self(@_);
+
+# bbb
+  my $fname = $TEMP_FILES{$temp_fd}{fname};
+  print ::TEHFILE "_$fname\n";
+  ::printstacktrace();
 
 	truncate $temp_fd, 0
 		or throw Error::Simple("couldn't truncate file");
