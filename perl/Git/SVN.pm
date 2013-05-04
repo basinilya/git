@@ -1,3 +1,48 @@
+my $indent = "";
+
+#open(TRACEFILE, ">", "/dev/stderr") or die "$!";
+#open(TRACEFILE, ">", "./calls.log") or die "$!";
+open(TRACEFILE, ">&STDERR") or die "$!";
+#open(TRACEFILE, ">", "/dev/null") or die "$!";
+TRACEFILE->autoflush(1);
+
+sub mytrace_wrapper {
+  my $funcname = shift;
+  my $funcref = shift;
+  my $wantarray = wantarray();
+  my $rslt;
+
+  print TRACEFILE $indent . "ENTRY: $funcname\n";
+  $indent .= "    ";
+  eval {
+    if ($wantarray) {
+      $rslt = [ &{$funcref}(@_) ];
+    }
+    elsif (defined $wantarray) {
+      $rslt = \ &{$funcref}(@_);
+    }
+    else {
+      &{$funcref}(@_);
+    }
+  };
+  $indent = substr($indent, 4);
+  print TRACEFILE $indent . "EXIT :$funcname\n";
+  if ($@) {
+    print TRACEFILE $indent . "DIE  :$funcname : $@\n";
+    die "$@";
+  }
+
+  if ($wantarray) {
+    return @$rslt;
+  }
+  elsif (defined $wantarray) {
+    return $$rslt;
+  } 
+  else {
+    return;
+  }
+}
+
 package Git::SVN;
 use strict;
 use warnings;
@@ -87,6 +132,10 @@ END {
 }
 
 sub resolve_local_globs {
+  ::mytrace_wrapper("resolve_local_globs", \&_real_resolve_local_globs, @_);
+}
+
+sub _real_resolve_local_globs {
 	my ($url, $fetch, $glob_spec) = @_;
 	return unless defined $glob_spec;
 	my $ref = $glob_spec->{ref};
@@ -120,6 +169,10 @@ sub resolve_local_globs {
 }
 
 sub parse_revision_argument {
+  ::mytrace_wrapper("parse_revision_argument", \&_real_parse_revision_argument, @_);
+}
+
+sub _real_parse_revision_argument {
 	my ($base, $head) = @_;
 	if (!defined $::_revision || $::_revision eq 'BASE:HEAD') {
 		return ($base, $head);
@@ -133,6 +186,10 @@ sub parse_revision_argument {
 }
 
 sub fetch_all {
+  ::mytrace_wrapper("fetch_all", \&_real_fetch_all, @_);
+}
+
+sub _real_fetch_all {
 	my ($repo_id, $remotes) = @_;
 	if (ref $repo_id) {
 		my $gs = $repo_id;
@@ -185,6 +242,10 @@ sub fetch_all {
 }
 
 sub read_all_remotes {
+  ::mytrace_wrapper("read_all_remotes", \&_real_read_all_remotes, @_);
+}
+
+sub _real_read_all_remotes {
 	my $r = {};
 	my $use_svm_props = eval { command_oneline(qw/config --bool
 	    svn.useSvmProps/) };
@@ -259,6 +320,10 @@ sub read_all_remotes {
 }
 
 sub init_vars {
+  ::mytrace_wrapper("init_vars", \&_real_init_vars, @_);
+}
+
+sub _real_init_vars {
 	$_gc_nr = $_gc_period = 1000;
 	if (defined $_repack || defined $_repack_flags) {
 	       warn "Repack options are obsolete; they have no effect.\n";
@@ -266,6 +331,10 @@ sub init_vars {
 }
 
 sub verify_remotes_sanity {
+  ::mytrace_wrapper("verify_remotes_sanity", \&_real_verify_remotes_sanity, @_);
+}
+
+sub _real_verify_remotes_sanity {
 	return unless -d $ENV{GIT_DIR};
 	my %seen;
 	foreach (command(qw/config -l/)) {
@@ -283,6 +352,10 @@ sub verify_remotes_sanity {
 }
 
 sub find_existing_remote {
+  ::mytrace_wrapper("find_existing_remote", \&_real_find_existing_remote, @_);
+}
+
+sub _real_find_existing_remote {
 	my ($url, $remotes) = @_;
 	return undef if $no_reuse_existing;
 	my $existing;
@@ -296,6 +369,10 @@ sub find_existing_remote {
 }
 
 sub init_remote_config {
+  ::mytrace_wrapper("init_remote_config", \&_real_init_remote_config, @_);
+}
+
+sub _real_init_remote_config {
 	my ($self, $url, $no_write) = @_;
 	$url = canonicalize_url($url);
 	my $r = read_all_remotes();
@@ -359,7 +436,11 @@ sub init_remote_config {
 	$self->url($url);
 }
 
-sub find_by_url { # repos_root and, path are optional
+sub find_by_url {
+  ::mytrace_wrapper("find_by_url", \&_real_find_by_url, @_);
+}
+
+sub _real_find_by_url { # repos_root and, path are optional
 	my ($class, $full_url, $repos_root, $path) = @_;
 
 	$full_url = canonicalize_url($full_url);
@@ -406,7 +487,9 @@ sub find_by_url { # repos_root and, path are optional
 		# remote fetch paths are not URI escaped.  Decode ours
 		# so they match
 		$p = uri_decode($p);
-
+print STDERR "p = $p\n"; 
+my @tehkeys = (keys %$fetch);
+print STDERR "fetch = @tehkeys\n"; 
 		foreach my $f (keys %$fetch) {
 			next if $f ne $p;
 			return Git::SVN->new($fetch->{$f}, $repo_id, $f);
@@ -416,6 +499,10 @@ sub find_by_url { # repos_root and, path are optional
 }
 
 sub init {
+  ::mytrace_wrapper("init", \&_real_init, @_);
+}
+
+sub _real_init {
 	my ($class, $url, $path, $repo_id, $ref_id, $no_write) = @_;
 	my $self = _new($class, $repo_id, $ref_id, $path);
 	if (defined $url) {
@@ -425,6 +512,10 @@ sub init {
 }
 
 sub find_ref {
+  ::mytrace_wrapper("find_ref", \&_real_find_ref, @_);
+}
+
+sub _real_find_ref {
 	my ($ref_id) = @_;
 	foreach (command(qw/config -l/)) {
 		next unless m!^svn-remote\.(.+)\.fetch=
@@ -439,6 +530,10 @@ sub find_ref {
 }
 
 sub new {
+  ::mytrace_wrapper("new", \&_real_new, @_);
+}
+
+sub _real_new {
 	my ($class, $ref_id, $repo_id, $path) = @_;
 	if (defined $ref_id && !defined $repo_id && !defined $path) {
 		($repo_id, $path) = find_ref($ref_id);
@@ -475,6 +570,10 @@ sub new {
 }
 
 sub refname {
+  ::mytrace_wrapper("refname", \&_real_refname, @_);
+}
+
+sub _real_refname {
 	my ($refname) = $_[0]->{ref_id} ;
 
 	# It cannot end with a slash /, we'll throw up on this because
@@ -512,12 +611,20 @@ sub refname {
 }
 
 sub desanitize_refname {
+  ::mytrace_wrapper("desanitize_refname", \&_real_desanitize_refname, @_);
+}
+
+sub _real_desanitize_refname {
 	my ($refname) = @_;
 	$refname =~ s{%(?:([0-9A-F]{2}))}{chr hex($1)}eg;
 	return $refname;
 }
 
 sub svm_uuid {
+  ::mytrace_wrapper("svm_uuid", \&_real_svm_uuid, @_);
+}
+
+sub _real_svm_uuid {
 	my ($self) = @_;
 	return $self->{svm}->{uuid} if $self->svm;
 	$self->ra;
@@ -528,6 +635,10 @@ sub svm_uuid {
 }
 
 sub svm {
+  ::mytrace_wrapper("svm", \&_real_svm, @_);
+}
+
+sub _real_svm {
 	my ($self) = @_;
 	return $self->{svm} if $self->{svm};
 	my $svm;
@@ -547,6 +658,10 @@ sub svm {
 }
 
 sub _set_svm_vars {
+  ::mytrace_wrapper("_set_svm_vars", \&_real__set_svm_vars, @_);
+}
+
+sub _real__set_svm_vars {
 	my ($self, $ra) = @_;
 	return $ra if $self->svm;
 
@@ -627,6 +742,10 @@ sub _set_svm_vars {
 }
 
 sub svnsync {
+  ::mytrace_wrapper("svnsync", \&_real_svnsync, @_);
+}
+
+sub _real_svnsync {
 	my ($self) = @_;
 	return $self->{svnsync} if $self->{svnsync};
 
@@ -683,6 +802,10 @@ sub svnsync {
 # this allows us to memoize our SVN::Ra UUID locally and avoid a
 # remote lookup (useful for 'git svn log').
 sub ra_uuid {
+  ::mytrace_wrapper("ra_uuid", \&_real_ra_uuid, @_);
+}
+
+sub _real_ra_uuid {
 	my ($self) = @_;
 	unless ($self->{ra_uuid}) {
 		my $key = "svn-remote.$self->{repo_id}.uuid";
@@ -699,6 +822,10 @@ sub ra_uuid {
 }
 
 sub _set_repos_root {
+  ::mytrace_wrapper("_set_repos_root", \&_real__set_repos_root, @_);
+}
+
+sub _real__set_repos_root {
 	my ($self, $repos_root) = @_;
 	my $k = "svn-remote.$self->{repo_id}.reposRoot";
 	$repos_root ||= $self->ra->{repos_root};
@@ -707,12 +834,20 @@ sub _set_repos_root {
 }
 
 sub repos_root {
+  ::mytrace_wrapper("repos_root", \&_real_repos_root, @_);
+}
+
+sub _real_repos_root {
 	my ($self) = @_;
 	my $k = "svn-remote.$self->{repo_id}.reposRoot";
 	eval { tmp_config('--get', $k) } || $self->_set_repos_root;
 }
 
 sub ra {
+  ::mytrace_wrapper("ra", \&_real_ra, @_);
+}
+
+sub _real_ra {
 	my ($self) = shift;
 	my $ra = Git::SVN::Ra->new($self->url);
 	$self->_set_repos_root($ra->{repos_root});
@@ -741,6 +876,10 @@ sub ra {
 # directory contains a sub-directory `d', SUB will be invoked with `/d/'
 # as `path' (note the trailing `/').
 sub prop_walk {
+  ::mytrace_wrapper("prop_walk", \&_real_prop_walk, @_);
+}
+
+sub _real_prop_walk {
 	my ($self, $path, $rev, $sub) = @_;
 
 	$path =~ s#^/##;
@@ -773,11 +912,23 @@ sub prop_walk {
 	}
 }
 
-sub last_rev { ($_[0]->last_rev_commit)[0] }
-sub last_commit { ($_[0]->last_rev_commit)[1] }
+sub last_rev {
+  ::mytrace_wrapper("last_rev", \&_real_last_rev, @_);
+}
+
+sub _real_last_rev { ($_[0]->last_rev_commit)[0] }
+sub last_commit {
+  ::mytrace_wrapper("last_commit", \&_real_last_commit, @_);
+}
+
+sub _real_last_commit { ($_[0]->last_rev_commit)[1] }
 
 # returns the newest SVN revision number and newest commit SHA1
 sub last_rev_commit {
+  ::mytrace_wrapper("last_rev_commit", \&_real_last_rev_commit, @_);
+}
+
+sub _real_last_rev_commit {
 	my ($self) = @_;
 	if (defined $self->{last_rev} && defined $self->{last_commit}) {
 		return ($self->{last_rev}, $self->{last_commit});
@@ -801,6 +952,10 @@ sub last_rev_commit {
 }
 
 sub get_fetch_range {
+  ::mytrace_wrapper("get_fetch_range", \&_real_get_fetch_range, @_);
+}
+
+sub _real_get_fetch_range {
 	my ($self, $min, $max) = @_;
 	$max ||= $self->ra->get_latest_revnum;
 	$min ||= $self->rev_map_max;
@@ -808,6 +963,10 @@ sub get_fetch_range {
 }
 
 sub tmp_config {
+  ::mytrace_wrapper("tmp_config", \&_real_tmp_config, @_);
+}
+
+sub _real_tmp_config {
 	my (@args) = @_;
 	my $old_def_config = "$ENV{GIT_DIR}/svn/config";
 	my $config = "$ENV{GIT_DIR}/svn/.metadata";
@@ -843,6 +1002,10 @@ sub tmp_config {
 }
 
 sub tmp_index_do {
+  ::mytrace_wrapper("tmp_index_do", \&_real_tmp_index_do, @_);
+}
+
+sub _real_tmp_index_do {
 	my ($self, $sub) = @_;
 	my $old_index = $ENV{GIT_INDEX_FILE};
 	$ENV{GIT_INDEX_FILE} = $self->{index};
@@ -863,6 +1026,10 @@ sub tmp_index_do {
 }
 
 sub assert_index_clean {
+  ::mytrace_wrapper("assert_index_clean", \&_real_assert_index_clean, @_);
+}
+
+sub _real_assert_index_clean {
 	my ($self, $treeish) = @_;
 
 	$self->tmp_index_do(sub {
@@ -884,6 +1051,10 @@ sub assert_index_clean {
 }
 
 sub get_commit_parents {
+  ::mytrace_wrapper("get_commit_parents", \&_real_get_commit_parents, @_);
+}
+
+sub _real_get_commit_parents {
 	my ($self, $log_entry) = @_;
 	my (%seen, @ret, @tmp);
 	# legacy support for 'set-tree'; this is only used by set_tree_cb:
@@ -910,6 +1081,10 @@ sub get_commit_parents {
 }
 
 sub rewrite_root {
+  ::mytrace_wrapper("rewrite_root", \&_real_rewrite_root, @_);
+}
+
+sub _real_rewrite_root {
 	my ($self) = @_;
 	return $self->{-rewrite_root} if exists $self->{-rewrite_root};
 	my $k = "svn-remote.$self->{repo_id}.rewriteRoot";
@@ -924,6 +1099,10 @@ sub rewrite_root {
 }
 
 sub rewrite_uuid {
+  ::mytrace_wrapper("rewrite_uuid", \&_real_rewrite_uuid, @_);
+}
+
+sub _real_rewrite_uuid {
 	my ($self) = @_;
 	return $self->{-rewrite_uuid} if exists $self->{-rewrite_uuid};
 	my $k = "svn-remote.$self->{repo_id}.rewriteUUID";
@@ -938,17 +1117,29 @@ sub rewrite_uuid {
 }
 
 sub metadata_url {
+  ::mytrace_wrapper("metadata_url", \&_real_metadata_url, @_);
+}
+
+sub _real_metadata_url {
 	my ($self) = @_;
 	my $url = $self->rewrite_root || $self->url;
 	return canonicalize_url( add_path_to_url( $url, $self->path ) );
 }
 
 sub full_url {
+  ::mytrace_wrapper("full_url", \&_real_full_url, @_);
+}
+
+sub _real_full_url {
 	my ($self) = @_;
 	return canonicalize_url( add_path_to_url( $self->url, $self->path ) );
 }
 
 sub full_pushurl {
+  ::mytrace_wrapper("full_pushurl", \&_real_full_pushurl, @_);
+}
+
+sub _real_full_pushurl {
 	my ($self) = @_;
 	if ($self->{pushurl}) {
 		return canonicalize_url( add_path_to_url( $self->{pushurl}, $self->path ) );
@@ -958,6 +1149,10 @@ sub full_pushurl {
 }
 
 sub set_commit_header_env {
+  ::mytrace_wrapper("set_commit_header_env", \&_real_set_commit_header_env, @_);
+}
+
+sub _real_set_commit_header_env {
 	my ($log_entry) = @_;
 	my %env;
 	foreach my $ned (qw/NAME EMAIL DATE/) {
@@ -980,6 +1175,10 @@ sub set_commit_header_env {
 }
 
 sub restore_commit_header_env {
+  ::mytrace_wrapper("restore_commit_header_env", \&_real_restore_commit_header_env, @_);
+}
+
+sub _real_restore_commit_header_env {
 	my ($env) = @_;
 	foreach my $ned (qw/NAME EMAIL DATE/) {
 		foreach my $ac (qw/AUTHOR COMMITTER/) {
@@ -994,10 +1193,18 @@ sub restore_commit_header_env {
 }
 
 sub gc {
+  ::mytrace_wrapper("gc", \&_real_gc, @_);
+}
+
+sub _real_gc {
 	command_noisy('gc', '--auto');
 };
 
 sub do_git_commit {
+  ::mytrace_wrapper("do_git_commit", \&_real_do_git_commit, @_);
+}
+
+sub _real_do_git_commit {
 	my ($self, $log_entry) = @_;
 	my $lr = $self->last_rev;
 	if (defined $lr && $lr >= $log_entry->{revision}) {
@@ -1066,6 +1273,10 @@ sub do_git_commit {
 }
 
 sub match_paths {
+  ::mytrace_wrapper("match_paths", \&_real_match_paths, @_);
+}
+
+sub _real_match_paths {
 	my ($self, $paths, $r) = @_;
 	return 1 if $self->path eq '';
 	if (my $path = $paths->{"/".$self->path}) {
@@ -1089,6 +1300,10 @@ sub match_paths {
 }
 
 sub find_parent_branch {
+  ::mytrace_wrapper("find_parent_branch", \&_real_find_parent_branch, @_);
+}
+
+sub _real_find_parent_branch {
 	my ($self, $paths, $rev) = @_;
 	return undef unless $self->follow_parent;
 	unless (defined $paths) {
@@ -1186,6 +1401,10 @@ sub find_parent_branch {
 }
 
 sub do_fetch {
+  ::mytrace_wrapper("do_fetch", \&_real_do_fetch, @_);
+}
+
+sub _real_do_fetch {
 	my ($self, $paths, $rev) = @_;
 	my $ed;
 	my ($last_rev, @parents);
@@ -1216,6 +1435,10 @@ sub do_fetch {
 }
 
 sub mkemptydirs {
+  ::mytrace_wrapper("mkemptydirs", \&_real_mkemptydirs, @_);
+}
+
+sub _real_mkemptydirs {
 	my ($self, $r) = @_;
 
 	sub scan {
@@ -1272,6 +1495,10 @@ sub mkemptydirs {
 }
 
 sub get_untracked {
+  ::mytrace_wrapper("get_untracked", \&_real_get_untracked, @_);
+}
+
+sub _real_get_untracked {
 	my ($self, $ed) = @_;
 	my @out;
 	my $h = $ed->{empty};
@@ -1321,6 +1548,10 @@ sub get_untracked {
 # By default the parsed date will be in UTC; if $Git::SVN::_localtime
 # is true we'll convert it to the local timezone instead.
 sub parse_svn_date {
+  ::mytrace_wrapper("parse_svn_date", \&_real_parse_svn_date, @_);
+}
+
+sub _real_parse_svn_date {
 	my $date = shift || return '+0000 1970-01-01 00:00:00';
 	my ($Y,$m,$d,$H,$M,$S) = ($date =~ /^(\d{4})\-(\d\d)\-(\d\d)T
 	                                    (\d\d)\:(\d\d)\:(\d\d)\.\d*Z$/x) or
@@ -1370,6 +1601,10 @@ sub parse_svn_date {
 }
 
 sub other_gs {
+  ::mytrace_wrapper("other_gs", \&_real_other_gs, @_);
+}
+
+sub _real_other_gs {
 	my ($self, $new_url, $url,
 	    $branch_from, $r, $old_ref_id) = @_;
 	my $gs = Git::SVN->find_by_url($new_url, $url, $branch_from);
@@ -1404,6 +1639,10 @@ sub other_gs {
 }
 
 sub call_authors_prog {
+  ::mytrace_wrapper("call_authors_prog", \&_real_call_authors_prog, @_);
+}
+
+sub _real_call_authors_prog {
 	my ($orig_author) = @_;
 	$orig_author = command_oneline('rev-parse', '--sq-quote', $orig_author);
 	my $author = `$::_authors_prog $orig_author`;
@@ -1421,6 +1660,10 @@ sub call_authors_prog {
 }
 
 sub check_author {
+  ::mytrace_wrapper("check_author", \&_real_check_author, @_);
+}
+
+sub _real_check_author {
 	my ($author) = @_;
 	if (!defined $author || length $author == 0) {
 		$author = '(no author)';
@@ -1436,6 +1679,10 @@ sub check_author {
 }
 
 sub find_extra_svk_parents {
+  ::mytrace_wrapper("find_extra_svk_parents", \&_real_find_extra_svk_parents, @_);
+}
+
+sub _real_find_extra_svk_parents {
 	my ($self, $ed, $tickets, $parents) = @_;
 	# aha!  svk:merge property changed...
 	my @tickets = split "\n", $tickets;
@@ -1479,6 +1726,10 @@ sub find_extra_svk_parents {
 }
 
 sub lookup_svn_merge {
+  ::mytrace_wrapper("lookup_svn_merge", \&_real_lookup_svn_merge, @_);
+}
+
+sub _real_lookup_svn_merge {
 	my $uuid = shift;
 	my $url = shift;
 	my $merge = shift;
@@ -1528,6 +1779,10 @@ sub lookup_svn_merge {
 }
 
 sub _rev_list {
+  ::mytrace_wrapper("_rev_list", \&_real__rev_list, @_);
+}
+
+sub _real__rev_list {
 	my ($msg_fh, $ctx) = command_output_pipe(
 		"rev-list", @_,
 	       );
@@ -1541,6 +1796,10 @@ sub _rev_list {
 }
 
 sub check_cherry_pick {
+  ::mytrace_wrapper("check_cherry_pick", \&_real_check_cherry_pick, @_);
+}
+
+sub _real_check_cherry_pick {
 	my $base = shift;
 	my $tip = shift;
 	my $parents = shift;
@@ -1559,6 +1818,10 @@ sub check_cherry_pick {
 }
 
 sub has_no_changes {
+  ::mytrace_wrapper("has_no_changes", \&_real_has_no_changes, @_);
+}
+
+sub _real_has_no_changes {
 	my $commit = shift;
 
 	my @revs = split / /, command_oneline(
@@ -1577,6 +1840,10 @@ sub has_no_changes {
 }
 
 sub tie_for_persistent_memoization {
+  ::mytrace_wrapper("tie_for_persistent_memoization", \&_real_tie_for_persistent_memoization, @_);
+}
+
+sub _real_tie_for_persistent_memoization {
 	my $hash = shift;
 	my $path = shift;
 
@@ -1663,6 +1930,10 @@ END {
 }
 
 sub parents_exclude {
+  ::mytrace_wrapper("parents_exclude", \&_real_parents_exclude, @_);
+}
+
+sub _real_parents_exclude {
 	my $parents = shift;
 	my @commits = @_;
 	return unless @commits;
@@ -1699,6 +1970,10 @@ sub parents_exclude {
 # note: this function should only be called if the various dirprops
 # have actually changed
 sub find_extra_svn_parents {
+  ::mytrace_wrapper("find_extra_svn_parents", \&_real_find_extra_svn_parents, @_);
+}
+
+sub _real_find_extra_svn_parents {
 	my ($self, $ed, $mergeinfo, $parents) = @_;
 	# aha!  svk:merge property changed...
 
@@ -1790,6 +2065,10 @@ sub find_extra_svn_parents {
 }
 
 sub make_log_entry {
+  ::mytrace_wrapper("make_log_entry", \&_real_make_log_entry, @_);
+}
+
+sub _real_make_log_entry {
 	my ($self, $rev, $parents, $ed) = @_;
 	my $untracked = $self->get_untracked($ed);
 
@@ -1914,6 +2193,10 @@ sub make_log_entry {
 }
 
 sub fetch {
+  ::mytrace_wrapper("fetch", \&_real_fetch, @_);
+}
+
+sub _real_fetch {
 	my ($self, $min_rev, $max_rev, @parents) = @_;
 	my ($last_rev, $last_commit) = $self->last_rev_commit;
 	my ($base, $head) = $self->get_fetch_range($min_rev, $max_rev);
@@ -1921,12 +2204,20 @@ sub fetch {
 }
 
 sub set_tree_cb {
+  ::mytrace_wrapper("set_tree_cb", \&_real_set_tree_cb, @_);
+}
+
+sub _real_set_tree_cb {
 	my ($self, $log_entry, $tree, $rev, $date, $author) = @_;
 	$self->{inject_parents} = { $rev => $tree };
 	$self->fetch(undef, undef);
 }
 
 sub set_tree {
+  ::mytrace_wrapper("set_tree", \&_real_set_tree, @_);
+}
+
+sub _real_set_tree {
 	my ($self, $tree) = (shift, shift);
 	my $log_entry = ::get_commit_entry($tree);
 	unless ($self->{last_rev}) {
@@ -1946,6 +2237,10 @@ sub set_tree {
 }
 
 sub rebuild_from_rev_db {
+  ::mytrace_wrapper("rebuild_from_rev_db", \&_real_rebuild_from_rev_db, @_);
+}
+
+sub _real_rebuild_from_rev_db {
 	my ($self, $path) = @_;
 	my $r = -1;
 	open my $fh, '<', $path or croak "open: $!";
@@ -1963,6 +2258,10 @@ sub rebuild_from_rev_db {
 }
 
 sub rebuild {
+  ::mytrace_wrapper("rebuild", \&_real_rebuild, @_);
+}
+
+sub _real_rebuild {
 	my ($self) = @_;
 	my $map_path = $self->map_path;
 	my $partial = (-e $map_path && ! -z $map_path);
@@ -2053,6 +2352,10 @@ sub rebuild {
 # These files are disposable unless noMetadata or useSvmProps is set
 
 sub _rev_map_set {
+  ::mytrace_wrapper("_rev_map_set", \&_real__rev_map_set, @_);
+}
+
+sub _real__rev_map_set {
 	my ($fh, $rev, $commit) = @_;
 
 	binmode $fh or croak "binmode: $!";
@@ -2090,6 +2393,10 @@ sub _rev_map_set {
 }
 
 sub _rev_map_reset {
+  ::mytrace_wrapper("_rev_map_reset", \&_real__rev_map_reset, @_);
+}
+
+sub _real__rev_map_reset {
 	my ($fh, $rev, $commit) = @_;
 	my $c = _rev_map_get($fh, $rev);
 	$c eq $commit or die "_rev_map_reset(@_) commit $c does not match!\n";
@@ -2098,6 +2405,10 @@ sub _rev_map_reset {
 }
 
 sub mkfile {
+  ::mytrace_wrapper("mkfile", \&_real_mkfile, @_);
+}
+
+sub _real_mkfile {
 	my ($path) = @_;
 	unless (-e $path) {
 		my ($dir, $base) = ($path =~ m#^(.*?)/?([^/]+)$#);
@@ -2108,6 +2419,10 @@ sub mkfile {
 }
 
 sub rev_map_set {
+  ::mytrace_wrapper("rev_map_set", \&_real_rev_map_set, @_);
+}
+
+sub _real_rev_map_set {
 	my ($self, $rev, $commit, $update_ref, $uuid) = @_;
 	defined $commit or die "missing arg3\n";
 	length $commit == 40 or die "arg3 must be a full SHA1 hexsum\n";
@@ -2174,6 +2489,10 @@ sub rev_map_set {
 # Otherwise, it'll return the max revision (whether or not the
 # commit is valid or just a 0x40 placeholder).
 sub rev_map_max {
+  ::mytrace_wrapper("rev_map_max", \&_real_rev_map_max, @_);
+}
+
+sub _real_rev_map_max {
 	my ($self, $want_commit) = @_;
 	$self->rebuild;
 	my ($r, $c) = $self->rev_map_max_norebuild($want_commit);
@@ -2181,6 +2500,10 @@ sub rev_map_max {
 }
 
 sub rev_map_max_norebuild {
+  ::mytrace_wrapper("rev_map_max_norebuild", \&_real_rev_map_max_norebuild, @_);
+}
+
+sub _real_rev_map_max_norebuild {
 	my ($self, $want_commit) = @_;
 	my $map_path = $self->map_path;
 	stat $map_path or return $want_commit ? (0, undef) : 0;
@@ -2213,6 +2536,10 @@ sub rev_map_max_norebuild {
 }
 
 sub rev_map_get {
+  ::mytrace_wrapper("rev_map_get", \&_real_rev_map_get, @_);
+}
+
+sub _real_rev_map_get {
 	my ($self, $rev, $uuid) = @_;
 	my $map_path = $self->map_path($uuid);
 	return undef unless -e $map_path;
@@ -2224,6 +2551,10 @@ sub rev_map_get {
 }
 
 sub _rev_map_get {
+  ::mytrace_wrapper("_rev_map_get", \&_real__rev_map_get, @_);
+}
+
+sub _real__rev_map_get {
 	my ($fh, $rev) = @_;
 
 	binmode $fh or croak "binmode: $!";
@@ -2259,6 +2590,10 @@ sub _rev_map_get {
 # than $min_rev.  Returns the git commit hash and svn revision number
 # if found, else (undef, undef).
 sub find_rev_before {
+  ::mytrace_wrapper("find_rev_before", \&_real_find_rev_before, @_);
+}
+
+sub _real_find_rev_before {
 	my ($self, $rev, $eq_ok, $min_rev) = @_;
 	--$rev unless $eq_ok;
 	$min_rev ||= 1;
@@ -2278,6 +2613,10 @@ sub find_rev_before {
 # than $max_rev.  Returns the git commit hash and svn revision number
 # if found, else (undef, undef).
 sub find_rev_after {
+  ::mytrace_wrapper("find_rev_after", \&_real_find_rev_after, @_);
+}
+
+sub _real_find_rev_after {
 	my ($self, $rev, $eq_ok, $max_rev) = @_;
 	++$rev unless $eq_ok;
 	$max_rev ||= $self->rev_map_max;
@@ -2291,6 +2630,10 @@ sub find_rev_after {
 }
 
 sub _new {
+  ::mytrace_wrapper("_new", \&_real__new, @_);
+}
+
+sub _real__new {
 	my ($class, $repo_id, $ref_id, $path) = @_;
 	unless (defined $repo_id && length $repo_id) {
 		$repo_id = $default_repo_id;
@@ -2327,6 +2670,10 @@ sub _new {
 }
 
 sub path {
+  ::mytrace_wrapper("path", \&_real_path, @_);
+}
+
+sub _real_path {
 	my $self = shift;
 
 	if (@_) {
@@ -2339,6 +2686,10 @@ sub path {
 }
 
 sub url {
+  ::mytrace_wrapper("url", \&_real_url, @_);
+}
+
+sub _real_url {
 	my $self = shift;
 
 	if (@_) {
@@ -2352,6 +2703,10 @@ sub url {
 
 # for read-only access of old .rev_db formats
 sub unlink_rev_db_symlink {
+  ::mytrace_wrapper("unlink_rev_db_symlink", \&_real_unlink_rev_db_symlink, @_);
+}
+
+sub _real_unlink_rev_db_symlink {
 	my ($self) = @_;
 	my $link = $self->rev_db_path;
 	$link =~ s/\.[\w-]+$// or croak "missing UUID at the end of $link";
@@ -2361,6 +2716,10 @@ sub unlink_rev_db_symlink {
 }
 
 sub rev_db_path {
+  ::mytrace_wrapper("rev_db_path", \&_real_rev_db_path, @_);
+}
+
+sub _real_rev_db_path {
 	my ($self, $uuid) = @_;
 	my $db_path = $self->map_path($uuid);
 	$db_path =~ s{/\.rev_map\.}{/\.rev_db\.}
@@ -2370,24 +2729,40 @@ sub rev_db_path {
 
 # the new replacement for .rev_db
 sub map_path {
+  ::mytrace_wrapper("map_path", \&_real_map_path, @_);
+}
+
+sub _real_map_path {
 	my ($self, $uuid) = @_;
 	$uuid ||= $self->ra_uuid;
 	"$self->{map_root}.$uuid";
 }
 
 sub uri_encode {
+  ::mytrace_wrapper("uri_encode", \&_real_uri_encode, @_);
+}
+
+sub _real_uri_encode {
 	my ($f) = @_;
 	$f =~ s#([^a-zA-Z0-9\*!\:_\./\-])#sprintf("%%%02X",ord($1))#eg;
 	$f
 }
 
 sub uri_decode {
+  ::mytrace_wrapper("uri_decode", \&_real_uri_decode, @_);
+}
+
+sub _real_uri_decode {
 	my ($f) = @_;
 	$f =~ s#%([0-9a-fA-F]{2})#chr(hex($1))#eg;
 	$f
 }
 
 sub remove_username {
+  ::mytrace_wrapper("remove_username", \&_real_remove_username, @_);
+}
+
+sub _real_remove_username {
 	$_[0] =~ s{^([^:]*://)[^@]+@}{$1};
 }
 
